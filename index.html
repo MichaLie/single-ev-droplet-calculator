@@ -548,6 +548,10 @@
 <script>
 // ===== Poisson math (mirrors core.py) =====
 
+function validateFraction(name, v) {
+  if (!(v >= 0.0 && v <= 1.0)) throw new Error(name + " must be in [0, 1].");
+}
+
 function occupancyMetrics(lambda) {
   if (lambda < 0) throw new Error("lambda must be >= 0.");
   const pEmpty = Math.exp(-lambda);
@@ -606,12 +610,16 @@ function lambdaCIFromEmptyCounts(nEmpty, nTotal, confidence) {
 
 function expectedSingleEvents(nDroplets, lambda, qQC, qID) {
   if (nDroplets < 0) throw new Error("n_droplets must be >= 0.");
+  validateFraction("q_qc", qQC);
+  validateFraction("q_identity", qID);
   const pSingle = occupancyMetrics(lambda).pSingle;
   return nDroplets * pSingle * qQC * qID;
 }
 
 function requiredDroplets(targetEvents, lambda, qQC, qID) {
   if (targetEvents <= 0) throw new Error("target must be > 0.");
+  validateFraction("q_qc", qQC);
+  validateFraction("q_identity", qID);
   const effective = occupancyMetrics(lambda).pSingle * qQC * qID;
   if (effective <= 0) throw new Error("Effective rate must be > 0.");
   return targetEvents / effective;
