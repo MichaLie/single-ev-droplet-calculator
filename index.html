@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Single-EV Droplet Occupancy Calculator</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --success: #16a34a;
+    --warn: #d97706;
+    --error: #dc2626;
+    --radius: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+    color: white;
+    padding: 2rem 1.5rem;
+    text-align: center;
+  }
+  header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+  header p { font-size: 0.9rem; opacity: 0.85; }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--border);
+    border-radius: var(--radius);
+    padding: 4px;
+    margin-bottom: 1.5rem;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 0.6rem 1rem;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active {
+    background: var(--card);
+    color: var(--primary);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .card h2 {
+    font-size: 1.05rem;
+    margin-bottom: 0.25rem;
+  }
+  .card .subtitle {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+
+  /* Forms */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+  }
+  .form-group { display: flex; flex-direction: column; }
+  .form-group.full-width { grid-column: 1 / -1; }
+  .form-group label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.3rem;
+  }
+  .form-group input[type="number"] {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-group input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+  }
+  .form-group .hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.6rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-top: 1rem;
+  }
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+  .btn-primary:hover { background: var(--primary-dark); }
+
+  /* Results */
+  .results { margin-top: 1.5rem; }
+  .results-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+  }
+  .result-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.75rem;
+  }
+  .result-item {
+    background: var(--bg);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+  }
+  .result-item .label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 0.15rem;
+  }
+  .result-item .value {
+    font-size: 1.2rem;
+    font-weight: 700;
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  }
+  .result-item .value.small { font-size: 0.95rem; }
+
+  /* Chart area */
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+  }
+  .chart-card h3 {
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+  }
+  canvas { width: 100% !important; height: auto !important; }
+
+  /* Lambda slider */
+  .lambda-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .lambda-slider-row input[type="range"] {
+    flex: 1;
+    accent-color: var(--primary);
+  }
+  .lambda-slider-row .lambda-display {
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    min-width: 3.5rem;
+    text-align: right;
+  }
+
+  /* Stacked bar */
+  .stacked-bar-container { margin: 1rem 0; }
+  .stacked-bar {
+    display: flex;
+    height: 36px;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+  }
+  .stacked-bar .seg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: white;
+    transition: width 0.3s;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .seg-empty { background: #94a3b8; }
+  .seg-single { background: #2563eb; }
+  .seg-multi { background: #dc2626; }
+  .bar-legend {
+    display: flex;
+    gap: 1.25rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .bar-legend span {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .bar-legend .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .error-msg {
+    color: var(--error);
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+  }
+
+  /* CI section */
+  .ci-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--border);
+  }
+  .ci-section h3 {
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  footer {
+    text-align: center;
+    padding: 2rem 1rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  footer a { color: var(--primary); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Single-EV Droplet Occupancy Calculator</h1>
+  <p>Poisson occupancy-aware design and reporting for single-EV droplet assays</p>
+</header>
+
+<div class="container">
+
+  <!-- Tabs -->
+  <div class="tabs" role="tablist">
+    <button class="tab-btn active" data-tab="summary" role="tab">Summary</button>
+    <button class="tab-btn" data-tab="compare" role="tab">Compare</button>
+    <button class="tab-btn" data-tab="plan" role="tab">Plan</button>
+  </div>
+
+  <!-- ==================== SUMMARY TAB ==================== -->
+  <div id="tab-summary" class="tab-panel active">
+    <div class="card">
+      <h2>Occupancy Summary</h2>
+      <p class="subtitle">Compute Poisson occupancy metrics for a given loading parameter.</p>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="sum-lambda">&lambda; (lambda)</label>
+          <input type="number" id="sum-lambda" value="0.10" min="0" step="0.01">
+          <span class="hint">Mean entities per droplet</span>
+        </div>
+        <div class="form-group">
+          <label for="sum-droplets">Number of droplets (optional)</label>
+          <input type="number" id="sum-droplets" value="250000" min="0" step="1000">
+        </div>
+        <div class="form-group">
+          <label for="sum-qqc">Q<sub>QC</sub> (QC pass rate)</label>
+          <input type="number" id="sum-qqc" value="0.60" min="0" max="1" step="0.01">
+          <span class="hint">Fraction passing QC, 0&ndash;1</span>
+        </div>
+        <div class="form-group">
+          <label for="sum-qid">Q<sub>identity</sub> (identity filter)</label>
+          <input type="number" id="sum-qid" value="0.70" min="0" max="1" step="0.01">
+          <span class="hint">Fraction passing identity filter, 0&ndash;1</span>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="btn-summary">Calculate</button>
+      <div class="error-msg" id="sum-error"></div>
+
+      <div class="results" id="sum-results" style="display:none;">
+        <div class="results-title">Occupancy Metrics</div>
+
+        <div class="stacked-bar-container">
+          <div class="stacked-bar" id="sum-bar"></div>
+          <div class="bar-legend">
+            <span><span class="dot" style="background:#94a3b8"></span> Empty</span>
+            <span><span class="dot" style="background:#2563eb"></span> Single</span>
+            <span><span class="dot" style="background:#dc2626"></span> Multi (&ge;2)</span>
+          </div>
+        </div>
+
+        <div class="result-grid">
+          <div class="result-item">
+            <div class="label">P(empty)</div>
+            <div class="value" id="sum-p-empty"></div>
+          </div>
+          <div class="result-item">
+            <div class="label">P(single)</div>
+            <div class="value" id="sum-p-single"></div>
+          </div>
+          <div class="result-item">
+            <div class="label">P(multi &ge; 2)</div>
+            <div class="value" id="sum-p-multi"></div>
+          </div>
+          <div class="result-item">
+            <div class="label">Purity | occupied</div>
+            <div class="value" id="sum-purity"></div>
+          </div>
+          <div class="result-item" id="sum-events-card" style="display:none;">
+            <div class="label">Expected single events</div>
+            <div class="value small" id="sum-events"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lambda CI section -->
+      <div class="ci-section">
+        <h3>Estimate &lambda; from empty counts (optional)</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="sum-empty-count">Empty droplet count</label>
+            <input type="number" id="sum-empty-count" placeholder="e.g. 9048" min="0" step="1">
+          </div>
+          <div class="form-group">
+            <label for="sum-total-count">Total droplet count</label>
+            <input type="number" id="sum-total-count" placeholder="e.g. 10000" min="1" step="1">
+          </div>
+          <div class="form-group">
+            <label for="sum-confidence">Confidence level</label>
+            <input type="number" id="sum-confidence" value="0.95" min="0.01" max="0.99" step="0.01">
+          </div>
+        </div>
+        <button class="btn btn-primary" id="btn-ci" style="background:#475569;">Estimate &lambda; CI</button>
+        <div class="error-msg" id="ci-error"></div>
+        <div class="result-grid" id="ci-results" style="display:none; margin-top:1rem;">
+          <div class="result-item">
+            <div class="label">&lambda; (point estimate)</div>
+            <div class="value" id="ci-lambda"></div>
+          </div>
+          <div class="result-item">
+            <div class="label">&lambda; CI lower</div>
+            <div class="value" id="ci-lower"></div>
+          </div>
+          <div class="result-item">
+            <div class="label">&lambda; CI upper</div>
+            <div class="value" id="ci-upper"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive chart -->
+    <div class="chart-card">
+      <h3>Occupancy Probabilities vs &lambda;</h3>
+      <p class="subtitle" style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.75rem;">
+        Drag the slider to explore how occupancy changes with loading.
+      </p>
+      <div class="lambda-slider-row">
+        <label style="font-size:0.8rem; font-weight:600; color:var(--text-muted);">&lambda;</label>
+        <input type="range" id="chart-slider" min="0.01" max="2.0" step="0.01" value="0.10">
+        <span class="lambda-display" id="chart-lambda-val">0.10</span>
+      </div>
+      <canvas id="chart-canvas" height="300"></canvas>
+    </div>
+  </div>
+
+  <!-- ==================== COMPARE TAB ==================== -->
+  <div id="tab-compare" class="tab-panel">
+    <div class="card">
+      <h2>Compare Operating Points</h2>
+      <p class="subtitle">Compare throughput and multiplet burden ratios for two &lambda; settings.</p>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="cmp-la">&lambda;<sub>a</sub></label>
+          <input type="number" id="cmp-la" value="0.10" min="0" step="0.01">
+        </div>
+        <div class="form-group">
+          <label for="cmp-lb">&lambda;<sub>b</sub></label>
+          <input type="number" id="cmp-lb" value="0.20" min="0" step="0.01">
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="btn-compare">Compare</button>
+      <div class="error-msg" id="cmp-error"></div>
+
+      <div class="results" id="cmp-results" style="display:none;">
+        <div class="results-title">Comparison</div>
+
+        <!-- Side-by-side bars -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+          <div>
+            <div style="font-size:0.8rem; font-weight:600; color:var(--text-muted); margin-bottom:0.35rem;">&lambda;<sub>a</sub> occupancy</div>
+            <div class="stacked-bar" id="cmp-bar-a" style="height:28px;"></div>
+          </div>
+          <div>
+            <div style="font-size:0.8rem; font-weight:600; color:var(--text-muted); margin-bottom:0.35rem;">&lambda;<sub>b</sub> occupancy</div>
+            <div class="stacked-bar" id="cmp-bar-b" style="height:28px;"></div>
+          </div>
+        </div>
+        <div class="bar-legend" style="margin-bottom:1rem;">
+          <span><span class="dot" style="background:#94a3b8"></span> Empty</span>
+          <span><span class="dot" style="background:#2563eb"></span> Single</span>
+          <span><span class="dot" style="background:#dc2626"></span> Multi (&ge;2)</span>
+        </div>
+
+        <div class="result-grid">
+          <div class="result-item">
+            <div class="label">&lambda;<sub>a</sub></div>
+            <div class="value" id="cmp-val-la"></div>
+          </div>
+          <div class="result-item">
+            <div class="label">&lambda;<sub>b</sub></div>
+            <div class="value" id="cmp-val-lb"></div>
+          </div>
+          <div class="result-item">
+            <div class="label">Single-event yield ratio (b/a)</div>
+            <div class="value" id="cmp-yield"></div>
+          </div>
+          <div class="result-item">
+            <div class="label">Multiplet burden ratio (b/a)</div>
+            <div class="value" id="cmp-burden"></div>
+          </div>
+        </div>
+
+        <!-- Per-point detail -->
+        <div style="margin-top:1rem;">
+          <div class="results-title">Per-point detail</div>
+          <div class="result-grid" id="cmp-detail"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== PLAN TAB ==================== -->
+  <div id="tab-plan" class="tab-panel">
+    <div class="card">
+      <h2>Plan Experiment</h2>
+      <p class="subtitle">Calculate how many droplets you need to reach a target number of interpretable single-EV events.</p>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="plan-target">Target single events</label>
+          <input type="number" id="plan-target" value="10000" min="1" step="100">
+        </div>
+        <div class="form-group">
+          <label for="plan-lambda">&lambda; (lambda)</label>
+          <input type="number" id="plan-lambda" value="0.10" min="0" step="0.01">
+        </div>
+        <div class="form-group">
+          <label for="plan-qqc">Q<sub>QC</sub> (QC pass rate)</label>
+          <input type="number" id="plan-qqc" value="0.60" min="0" max="1" step="0.01">
+        </div>
+        <div class="form-group">
+          <label for="plan-qid">Q<sub>identity</sub> (identity filter)</label>
+          <input type="number" id="plan-qid" value="0.70" min="0" max="1" step="0.01">
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="btn-plan">Calculate</button>
+      <div class="error-msg" id="plan-error"></div>
+
+      <div class="results" id="plan-results" style="display:none;">
+        <div class="results-title">Planning Result</div>
+        <div class="result-grid">
+          <div class="result-item">
+            <div class="label">Required droplets</div>
+            <div class="value" id="plan-droplets"></div>
+          </div>
+          <div class="result-item">
+            <div class="label">P(single)</div>
+            <div class="value" id="plan-psingle"></div>
+          </div>
+          <div class="result-item">
+            <div class="label">Effective rate (P &times; Q<sub>QC</sub> &times; Q<sub>id</sub>)</div>
+            <div class="value" id="plan-effective"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <p>
+    <strong>single-ev-droplet-calculator</strong> &mdash;
+    <a href="https://github.com/MichaLie/single-ev-droplet-calculator" target="_blank">GitHub</a>
+    &nbsp;|&nbsp; MIT License
+  </p>
+</footer>
+
+<script>
+// ===== Poisson math (mirrors core.py) =====
+
+function occupancyMetrics(lambda) {
+  if (lambda < 0) throw new Error("lambda must be >= 0.");
+  const pEmpty = Math.exp(-lambda);
+  const pSingle = lambda * pEmpty;
+  const pMulti = 1.0 - pEmpty - pSingle;
+  const occupied = 1.0 - pEmpty;
+  const purity = occupied > 0 ? pSingle / occupied : 0;
+  return { lambda, pEmpty, pSingle, pMulti, purity };
+}
+
+function lambdaFromEmptyFraction(fEmpty) {
+  if (fEmpty <= 0 || fEmpty >= 1) throw new Error("f_empty must be strictly between 0 and 1.");
+  return -Math.log(fEmpty);
+}
+
+// Normal distribution inverse CDF (rational approximation, Abramowitz & Stegun)
+function normInvCDF(p) {
+  if (p <= 0 || p >= 1) throw new Error("p must be in (0,1)");
+  if (p < 0.5) return -normInvCDF(1 - p);
+  const t = Math.sqrt(-2 * Math.log(1 - p));
+  const c0 = 2.515517, c1 = 0.802853, c2 = 0.010328;
+  const d1 = 1.432788, d2 = 0.189269, d3 = 0.001308;
+  return t - (c0 + c1 * t + c2 * t * t) / (1 + d1 * t + d2 * t * t + d3 * t * t * t);
+}
+
+function wilsonInterval(kSuccess, nTotal, confidence) {
+  if (nTotal <= 0) throw new Error("n_total must be > 0.");
+  if (kSuccess < 0 || kSuccess > nTotal) throw new Error("k_success must be in [0, n_total].");
+  if (confidence <= 0 || confidence >= 1) throw new Error("confidence must be in (0, 1).");
+
+  const pHat = kSuccess / nTotal;
+  const z = normInvCDF(0.5 + confidence / 2.0);
+  const z2 = z * z;
+
+  const denom = 1.0 + z2 / nTotal;
+  const center = (pHat + z2 / (2.0 * nTotal)) / denom;
+  const half = z * Math.sqrt((pHat * (1 - pHat) / nTotal) + (z2 / (4.0 * nTotal * nTotal))) / denom;
+  return {
+    lower: Math.max(0, center - half),
+    upper: Math.min(1, center + half),
+    confidence
+  };
+}
+
+function lambdaCIFromEmptyCounts(nEmpty, nTotal, confidence) {
+  const interval = wilsonInterval(nEmpty, nTotal, confidence);
+  const eps = 1e-12;
+  const fLo = Math.max(interval.lower, eps);
+  const fHi = Math.min(interval.upper, 1.0 - eps);
+  return {
+    lower: -Math.log(fHi),
+    upper: -Math.log(fLo),
+    confidence
+  };
+}
+
+function expectedSingleEvents(nDroplets, lambda, qQC, qID) {
+  if (nDroplets < 0) throw new Error("n_droplets must be >= 0.");
+  const pSingle = occupancyMetrics(lambda).pSingle;
+  return nDroplets * pSingle * qQC * qID;
+}
+
+function requiredDroplets(targetEvents, lambda, qQC, qID) {
+  if (targetEvents <= 0) throw new Error("target must be > 0.");
+  const effective = occupancyMetrics(lambda).pSingle * qQC * qID;
+  if (effective <= 0) throw new Error("Effective rate must be > 0.");
+  return targetEvents / effective;
+}
+
+function comparePoints(la, lb) {
+  const ma = occupancyMetrics(la);
+  const mb = occupancyMetrics(lb);
+  if (ma.pSingle <= 0) throw new Error("lambda_a must yield positive P(single).");
+  if (ma.pMulti <= 0) throw new Error("lambda_a must yield positive P(multi).");
+  return {
+    la, lb,
+    yieldRatio: mb.pSingle / ma.pSingle,
+    burdenRatio: mb.pMulti / ma.pMulti,
+    metricsA: ma,
+    metricsB: mb
+  };
+}
+
+// ===== Formatting =====
+function fmt(x, digits) { return x.toFixed(digits !== undefined ? digits : 6); }
+function fmtPct(x) { return (x * 100).toFixed(2) + '%'; }
+function fmtInt(x) { return Math.ceil(x).toLocaleString(); }
+
+// ===== Tab switching =====
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ===== Stacked bar helper =====
+function renderBar(barEl, pEmpty, pSingle, pMulti) {
+  const pctE = (pEmpty * 100).toFixed(1);
+  const pctS = (pSingle * 100).toFixed(1);
+  const pctM = (pMulti * 100).toFixed(1);
+  barEl.innerHTML =
+    `<div class="seg seg-empty" style="width:${pctE}%">${pEmpty > 0.08 ? pctE + '%' : ''}</div>` +
+    `<div class="seg seg-single" style="width:${pctS}%">${pSingle > 0.04 ? pctS + '%' : ''}</div>` +
+    `<div class="seg seg-multi" style="width:${pctM}%">${pMulti > 0.04 ? pctM + '%' : ''}</div>`;
+}
+
+// ===== Summary =====
+document.getElementById('btn-summary').addEventListener('click', () => {
+  const errEl = document.getElementById('sum-error');
+  errEl.textContent = '';
+  try {
+    const lam = parseFloat(document.getElementById('sum-lambda').value);
+    const m = occupancyMetrics(lam);
+
+    document.getElementById('sum-p-empty').textContent = fmt(m.pEmpty);
+    document.getElementById('sum-p-single').textContent = fmt(m.pSingle);
+    document.getElementById('sum-p-multi').textContent = fmt(m.pMulti);
+    document.getElementById('sum-purity').textContent = fmt(m.purity);
+
+    renderBar(document.getElementById('sum-bar'), m.pEmpty, m.pSingle, m.pMulti);
+
+    const nDrop = document.getElementById('sum-droplets').value;
+    const evCard = document.getElementById('sum-events-card');
+    if (nDrop && parseFloat(nDrop) > 0) {
+      const qqc = parseFloat(document.getElementById('sum-qqc').value);
+      const qid = parseFloat(document.getElementById('sum-qid').value);
+      const ev = expectedSingleEvents(parseFloat(nDrop), lam, qqc, qid);
+      document.getElementById('sum-events').textContent = fmtInt(ev);
+      evCard.style.display = '';
+    } else {
+      evCard.style.display = 'none';
+    }
+
+    document.getElementById('sum-results').style.display = '';
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+});
+
+// ===== Lambda CI =====
+document.getElementById('btn-ci').addEventListener('click', () => {
+  const errEl = document.getElementById('ci-error');
+  errEl.textContent = '';
+  try {
+    const nEmpty = parseInt(document.getElementById('sum-empty-count').value);
+    const nTotal = parseInt(document.getElementById('sum-total-count').value);
+    const conf = parseFloat(document.getElementById('sum-confidence').value);
+    if (isNaN(nEmpty) || isNaN(nTotal)) throw new Error("Enter both empty and total counts.");
+
+    const fEmpty = nEmpty / nTotal;
+    const lamEst = lambdaFromEmptyFraction(fEmpty);
+    const ci = lambdaCIFromEmptyCounts(nEmpty, nTotal, conf);
+
+    document.getElementById('ci-lambda').textContent = fmt(lamEst);
+    document.getElementById('ci-lower').textContent = fmt(ci.lower);
+    document.getElementById('ci-upper').textContent = fmt(ci.upper);
+    document.getElementById('ci-results').style.display = '';
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+});
+
+// ===== Compare =====
+document.getElementById('btn-compare').addEventListener('click', () => {
+  const errEl = document.getElementById('cmp-error');
+  errEl.textContent = '';
+  try {
+    const la = parseFloat(document.getElementById('cmp-la').value);
+    const lb = parseFloat(document.getElementById('cmp-lb').value);
+    const c = comparePoints(la, lb);
+
+    document.getElementById('cmp-val-la').textContent = fmt(la);
+    document.getElementById('cmp-val-lb').textContent = fmt(lb);
+    document.getElementById('cmp-yield').textContent = fmt(c.yieldRatio) + 'x';
+    document.getElementById('cmp-burden').textContent = fmt(c.burdenRatio) + 'x';
+
+    renderBar(document.getElementById('cmp-bar-a'), c.metricsA.pEmpty, c.metricsA.pSingle, c.metricsA.pMulti);
+    renderBar(document.getElementById('cmp-bar-b'), c.metricsB.pEmpty, c.metricsB.pSingle, c.metricsB.pMulti);
+
+    // Detail cards
+    const detail = document.getElementById('cmp-detail');
+    detail.innerHTML = '';
+    [['a', c.metricsA], ['b', c.metricsB]].forEach(([label, m]) => {
+      ['pEmpty', 'pSingle', 'pMulti', 'purity'].forEach(key => {
+        const names = { pEmpty: 'P(empty)', pSingle: 'P(single)', pMulti: 'P(multi>=2)', purity: 'Purity | occ.' };
+        detail.innerHTML += `<div class="result-item"><div class="label">${names[key]} [${label}]</div><div class="value small">${fmt(m[key])}</div></div>`;
+      });
+    });
+
+    document.getElementById('cmp-results').style.display = '';
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+});
+
+// ===== Plan =====
+document.getElementById('btn-plan').addEventListener('click', () => {
+  const errEl = document.getElementById('plan-error');
+  errEl.textContent = '';
+  try {
+    const target = parseFloat(document.getElementById('plan-target').value);
+    const lam = parseFloat(document.getElementById('plan-lambda').value);
+    const qqc = parseFloat(document.getElementById('plan-qqc').value);
+    const qid = parseFloat(document.getElementById('plan-qid').value);
+
+    const n = requiredDroplets(target, lam, qqc, qid);
+    const m = occupancyMetrics(lam);
+    const effective = m.pSingle * qqc * qid;
+
+    document.getElementById('plan-droplets').textContent = fmtInt(n);
+    document.getElementById('plan-psingle').textContent = fmt(m.pSingle);
+    document.getElementById('plan-effective').textContent = fmt(effective);
+
+    document.getElementById('plan-results').style.display = '';
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+});
+
+// ===== Interactive chart (pure canvas, no dependencies) =====
+const canvas = document.getElementById('chart-canvas');
+const ctx = canvas.getContext('2d');
+const slider = document.getElementById('chart-slider');
+const lambdaDisplay = document.getElementById('chart-lambda-val');
+
+function drawChart(highlightLam) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const W = rect.width - 3;  // account for padding
+  const H = 300;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const pad = { top: 20, right: 20, bottom: 45, left: 55 };
+  const cw = W - pad.left - pad.right;
+  const ch = H - pad.top - pad.bottom;
+
+  // Clear
+  ctx.clearRect(0, 0, W, H);
+
+  // Axes
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top);
+  ctx.lineTo(pad.left, pad.top + ch);
+  ctx.lineTo(pad.left + cw, pad.top + ch);
+  ctx.stroke();
+
+  // Grid & labels
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '11px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+
+  // X axis (lambda 0 to 2)
+  for (let v = 0; v <= 2; v += 0.5) {
+    const x = pad.left + (v / 2) * cw;
+    ctx.fillText(v.toFixed(1), x, H - pad.bottom + 18);
+    if (v > 0) {
+      ctx.strokeStyle = '#f1f5f9';
+      ctx.beginPath();
+      ctx.moveTo(x, pad.top);
+      ctx.lineTo(x, pad.top + ch);
+      ctx.stroke();
+    }
+  }
+  ctx.fillText('\u03bb', pad.left + cw / 2, H - 5);
+
+  // Y axis (0 to 1)
+  ctx.textAlign = 'right';
+  for (let v = 0; v <= 1; v += 0.2) {
+    const y = pad.top + ch - v * ch;
+    ctx.fillText(v.toFixed(1), pad.left - 8, y + 4);
+    ctx.strokeStyle = '#f1f5f9';
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(pad.left + cw, y);
+    ctx.stroke();
+  }
+
+  // Y axis label
+  ctx.save();
+  ctx.translate(14, pad.top + ch / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.fillText('Probability', 0, 0);
+  ctx.restore();
+
+  // Plot data
+  const N = 200;
+  const curves = [
+    { key: 'pEmpty',  color: '#94a3b8', label: 'P(empty)' },
+    { key: 'pSingle', color: '#2563eb', label: 'P(single)' },
+    { key: 'pMulti',  color: '#dc2626', label: 'P(multi\u22652)' },
+    { key: 'purity',  color: '#16a34a', label: 'Purity | occ.' },
+  ];
+
+  curves.forEach(curve => {
+    ctx.strokeStyle = curve.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const lam = (i / N) * 2;
+      const m = occupancyMetrics(lam);
+      const x = pad.left + (lam / 2) * cw;
+      const y = pad.top + ch - m[curve.key] * ch;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  });
+
+  // Highlight vertical line at current lambda
+  if (highlightLam !== undefined) {
+    const xH = pad.left + (highlightLam / 2) * cw;
+    ctx.strokeStyle = 'rgba(37,99,235,0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(xH, pad.top);
+    ctx.lineTo(xH, pad.top + ch);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Dots on curves
+    const m = occupancyMetrics(highlightLam);
+    curves.forEach(curve => {
+      const y = pad.top + ch - m[curve.key] * ch;
+      ctx.fillStyle = curve.color;
+      ctx.beginPath();
+      ctx.arc(xH, y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  // Legend
+  const legendY = pad.top + 8;
+  let legendX = pad.left + 8;
+  ctx.font = '11px -apple-system, sans-serif';
+  curves.forEach(curve => {
+    ctx.fillStyle = curve.color;
+    ctx.fillRect(legendX, legendY, 14, 3);
+    ctx.fillStyle = '#475569';
+    ctx.textAlign = 'left';
+    ctx.fillText(curve.label, legendX + 18, legendY + 5);
+    legendX += ctx.measureText(curve.label).width + 32;
+  });
+}
+
+slider.addEventListener('input', () => {
+  const lam = parseFloat(slider.value);
+  lambdaDisplay.textContent = lam.toFixed(2);
+  drawChart(lam);
+});
+
+// Initial draw
+window.addEventListener('resize', () => drawChart(parseFloat(slider.value)));
+drawChart(0.10);
+
+// Auto-calculate summary on load with defaults
+document.getElementById('btn-summary').click();
+</script>
+
+</body>
+</html>
